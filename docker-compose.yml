@@ -1,0 +1,20 @@
+version: '3.4'
+services:
+  lambda:
+    build: .
+    volumes:
+      - .:/usr/src/app
+    environment:
+      - INFLUXDB_HOST=influx
+      - INFLUXDB_PORT=8086
+      - INFLUXDB_USER=iot
+      - INFLUXDB_PWD=iot
+      - INFLUXDB_DB=iotfuse2018
+    depends_on:
+      - influx
+  influx:
+    image: influxdb:latest
+    environment:
+      - INFLUXDB_DB=iotfuse2018
+      - INFLUXDB_USER=iot
+      - INFLUXDB_USER_PASSWORD=iot
