@@ -10,47 +10,61 @@ import sys
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(CWD, "modules"))
 
-from influxdb import InfluxDBClient
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import random
 
 # enable basic logging to CloudWatch Logs
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def formatted_data(device, datatype, pt):
-    return {
-        'measurement': datatype,
-        'tags': {
-            'device': device,
-        },
-        'time': datetime(*time.gmtime(round(int(pt[datatype]['timestamp'])/1000))[:6]).isoformat(),
-        'fields': {
-            'x': float(pt[datatype]['x']),
-            'y': float(pt[datatype]['y']),
-            'z': float(pt[datatype]['z']),
-        }
-    }
+# def formatted_data(device, datatype, pt):
+#     return {
+#         'measurement': datatype,
+#         'tags': {
+#             'device': device,
+#         },
+#         'time': datetime(*time.gmtime(round(int(pt[datatype]['timestamp'])/1000))[:6]).isoformat(),
+#         'fields': {
+#             'x': float(pt[datatype]['x']),
+#             'y': float(pt[datatype]['y']),
+#             'z': float(pt[datatype]['z']),
+#         }
+#     }
 
 def lambda_handler(event, context):
     payload = json.loads(event['body'])
-    client = InfluxDBClient(
-        os.environ['INFLUXDB_HOST'], 
-        int(os.environ['INFLUXDB_PORT']), 
-        os.environ['INFLUXDB_USER'],
-        os.environ['INFLUXDB_PWD'],
-        os.environ['INFLUXDB_DB']
-        )
+    # client = InfluxDBClient(
+    #     os.environ['INFLUXDB_HOST'], 
+    #     int(os.environ['INFLUXDB_PORT']), 
+    #     os.environ['INFLUXDB_USER'],
+    #     os.environ['INFLUXDB_PWD'],
+    #     os.environ['INFLUXDB_DB']
+    #     )
 
-    deviceId = event['queryStringParameters']['device']
+    # deviceId = event['queryStringParameters']['device']
 
-    acceleration_data = partial(formatted_data, deviceId, 'acceleration')
-    acc = list(map(acceleration_data, payload))
-    client.write_points(acc)
+    # acceleration_data = partial(formatted_data, deviceId, 'acceleration')
+    # acc = list(map(acceleration_data, payload))
+    # client.write_points(acc)
 
-    gyroscope_data = partial(formatted_data, deviceId, 'gyroscope')
-    gyro = list(map(gyroscope_data, payload))
-    client.write_points(gyro)
+    # gyroscope_data = partial(formatted_data, deviceId, 'gyroscope')
+    # gyro = list(map(gyroscope_data, payload))
+    # client.write_points(gyro)
     
     result = client.query("select x from acceleration")
     print("Result {0}".format(result))
     client.close()
     return { 'statusCode': 201 };
+
+
+
+
+wave = list(map(lambda x: math.sin(math.radians(x)) + random.random()*9, range(0, 1440, 5)))
+print('Wave', wave)
+plt.plot(wave)
+result = np.fft.fft(wave)
+print('Result', result)
+plt.plot(result)
+plt.show()
