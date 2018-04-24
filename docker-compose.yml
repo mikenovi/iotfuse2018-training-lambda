@@ -5,16 +5,8 @@ services:
     volumes:
       - .:/usr/src/app
     environment:
-      - INFLUXDB_HOST=influx
-      - INFLUXDB_PORT=8086
-      - INFLUXDB_USER=iot
-      - INFLUXDB_PWD=iot
-      - INFLUXDB_DB=iotfuse2018
+      - FACTOR_TABLE=IOTFuse2018Factors
     depends_on:
-      - influx
-  influx:
-    image: influxdb:latest
-    environment:
-      - INFLUXDB_DB=iotfuse2018
-      - INFLUXDB_USER=iot
-      - INFLUXDB_USER_PASSWORD=iot
+      - dynamo
+  dynamo:
+    image: peopleperhour/dynamodb

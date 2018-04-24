@@ -1,70 +1,64 @@
 from __future__ import print_function
+import boto3
 import logging
 import json
 import decimal
 import os
 import time
+import statistics
 from datetime import datetime
 from functools import partial
 import sys
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(CWD, "modules"))
 
-import numpy as np
-import math
-import matplotlib.pyplot as plt
-import random
-
 # enable basic logging to CloudWatch Logs
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# def formatted_data(device, datatype, pt):
-#     return {
-#         'measurement': datatype,
-#         'tags': {
-#             'device': device,
-#         },
-#         'time': datetime(*time.gmtime(round(int(pt[datatype]['timestamp'])/1000))[:6]).isoformat(),
-#         'fields': {
-#             'x': float(pt[datatype]['x']),
-#             'y': float(pt[datatype]['y']),
-#             'z': float(pt[datatype]['z']),
-#         }
-#     }
+def calc_stats(axis, measure, points):
+    pts = list(map((lambda m: m[measure][axis]), points))
+    return {
+        measure + '-' + axis + '-mean': statistics.mean(pts),
+        measure + '-' + axis + '-stdev': statistics.stdev(pts),
+        measure + '-' + axis + '-median': statistics.median(pts),
+        measure + '-' + axis + '-max': max(pts),
+        measure + '-' + axis + '-min': min(pts),
+    }
+
+def factor_row(stats):
+    row = {}
+    for k, v in stats.items():
+        row[k] = { 'N': str(v) }
+
+    return row
 
 def lambda_handler(event, context):
     payload = json.loads(event['body'])
-    # client = InfluxDBClient(
-    #     os.environ['INFLUXDB_HOST'], 
-    #     int(os.environ['INFLUXDB_PORT']), 
-    #     os.environ['INFLUXDB_USER'],
-    #     os.environ['INFLUXDB_PWD'],
-    #     os.environ['INFLUXDB_DB']
-    #     )
+   
+    deviceId = event['queryStringParameters']['device']
+    classification = event['queryStringParameters']['class']
 
-    # deviceId = event['queryStringParameters']['device']
+    stats = {}
+    for m in ['acceleration', 'gyroscope']:
+        for a in ['x', 'y', 'z']:
+            agg_func = partial(calc_stats, a, m)
+            stats = { **stats, **agg_func(payload) }
 
-    # acceleration_data = partial(formatted_data, deviceId, 'acceleration')
-    # acc = list(map(acceleration_data, payload))
-    # client.write_points(acc)
-
-    # gyroscope_data = partial(formatted_data, deviceId, 'gyroscope')
-    # gyro = list(map(gyroscope_data, payload))
-    # client.write_points(gyro)
+    client = boto3.client('dynamodb')
+    client.put_item(
+        TableName=os.environ['FACTOR_TABLE'],
+        Item={ 
+            **{
+                'device_id': { 'S': str(deviceId) }, 
+                'time': { 'N': str(time.time()) }, 
+                'result': { 'S': classification }
+            }, 
+            **factor_row(stats)
+        },
+        ReturnValues='NONE')    
     
-    result = client.query("select x from acceleration")
-    print("Result {0}".format(result))
-    client.close()
     return { 'statusCode': 201 };
 
 
 
-
-wave = list(map(lambda x: math.sin(math.radians(x)) + random.random()*9, range(0, 1440, 5)))
-print('Wave', wave)
-plt.plot(wave)
-result = np.fft.fft(wave)
-print('Result', result)
-plt.plot(result)
-plt.show()
