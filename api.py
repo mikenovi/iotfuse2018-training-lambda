@@ -33,6 +33,36 @@ def factor_row(stats):
 
     return row
 
+def prediction_handle(event, context):
+    payload = json.loads(event['body'])
+
+    deviceId = event['queryStringParameters']['device']
+    stats = {}
+    for m in ['acceleration', 'gyroscope']:
+        for a in ['x', 'y', 'z']:
+            agg_func = partial(calc_stats, a, m)
+            stats = { **stats, **agg_func(payload) }
+    
+    for k, v in stats.items():
+        stats[k] = str(v)
+        
+
+    ml = boto3.client('machinelearning')
+    pred = ml.predict(
+        MLModelId=os.environ['ML_MODEL_ID'],
+        Record=stats,
+        PredictEndpoint=os.environ['ML_ENDPOINT']
+        )
+        
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+        },
+        'body': json.dumps({ 'classification': pred['Prediction']['predictedLabel']}) 
+    }
+
 def lambda_handler(event, context):
     payload = json.loads(event['body'])
    
@@ -58,7 +88,9 @@ def lambda_handler(event, context):
         },
         ReturnValues='NONE')    
     
-    return { 'statusCode': 201 };
-
-
-
+    return { 
+        'statusCode': 201, 
+        'headers': {
+            'Access-Control-Allow-Origin' : '*',
+        }
+    };

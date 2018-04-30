@@ -33,27 +33,31 @@ def lambda_handler(event, context):
     writer = None
 
     while read:
-        resp = None
-        if last_key == None:
-            resp = ddb.scan(
-                TableName=os.environ['FACTORS_TABLE'],
-            )
-        else:
-            resp = ddb.scan(
-                TableName=os.environ['FACTORS_TABLE'],
-                ExclusiveStartKey=last_key,
-            )
-        
-        if writer == None:
-            fields = list(resp['Items'][0].keys())
-            writer = csv.DictWriter(csvfile, fieldnames=fields)
-            writer.writeheader()
+      resp = None
+      if last_key == None:
+        resp = ddb.scan(
+          TableName=os.environ['FACTORS_TABLE'],
+        )
+      else:
+        resp = ddb.scan(
+          TableName=os.environ['FACTORS_TABLE'],
+          ExclusiveStartKey=last_key,
+        )
+      
+      if writer == None:
+        fields = list(resp['Items'][0].keys())
+        fields.remove('time')
+        fields.remove('device_id')
+        writer = csv.DictWriter(csvfile, fieldnames=fields)
+        writer.writeheader()
 
-        last_key = resp.get('LastEvaluatedKey', None)
-        if last_key == None:
-            read = False
+      last_key = resp.get('LastEvaluatedKey', None)
+      if last_key == None:
+        read = False
 
-        for item in resp['Items']:
-            writer.writerow(ddb2dict(item))
+      for item in resp['Items']:
+        item.pop('time')
+        item.pop('device_id')
+        writer.writerow(ddb2dict(item))
 
     copyToS3Bucket('/tmp/yesno.csv')
